@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Points on a map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+    <link
+      href="https://api.tiles.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css"
+      rel="stylesheet"
+    />
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.7.0/mapbox-gl-geocoder.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.7.0/mapbox-gl-geocoder.css"
+      type="text/css"
+    />
+
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+      }
+
+      #instructions {
+        position: absolute;
+        margin: 20px;
+        width: 20%;
+        top: 35px;
+        bottom: 30%;
+        padding: 20px;
+        background-color: #fff;
+        overflow-y: scroll;
+        font-family: sans-serif;
+      }
+
+      #transportation-mode {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 1;
+        background-color: #fff;
+        padding: 4px;
+        border-radius: 4px;
+        font-family: sans-serif;
+        margin-left: 10px;
+        border-radius: 5px;
+      }
+
+      #transportation-mode select {
+        margin-right: 10px;
+      }
+
+      .custom-popup {
+        max-height: 300px;
+        max-width: 300px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+      }
+
+      .custom-popup::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .custom-popup::-webkit-scrollbar-track {
+        background-color: #f1f1f1;
+      }
+
+      .custom-popup::-webkit-scrollbar-thumb {
+        background-color: #888;
+        border-radius: 4px;
+      }
+
+      .custom-popup::-webkit-scrollbar-thumb:hover {
+        background-color: #555;
+      }
+
+      #legend {
+        position: absolute;
+        bottom: 15px;
+        right: 10px;
+        background-color: #fff;
+        padding: 5px;
+        border-radius: 4px;
+        font-family: sans-serif;
+        opacity: 75%;
+      }
+
+      .reddot {
+        height: 22px;
+        width: 22px;
+        background-color: #ce5353;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      .yellowdot {
+        height: 22px;
+        width: 22px;
+        background-color: #06c241;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      .greendot {
+        height: 22px;
+        width: 22px;
+        background-color: #e3e344;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      .dot-container {
+        display: flex;
+        align-items: center;
+      }
+
+      .text {
+        margin: 10px;
+        font-size: small;
+      }
+
+      .svgicon {
+        width: 25px;
+        height: 22px;
+      }
+
+      .iconlgnd {
+        padding-right: 10px;
+        display: flex;
+      }
+
+      /* SLIDER styling */
+      .mySlides {
+        display: contents;
+      }
+
+      .w3-content {
+        position: relative;
+        max-width: 100%;
+        height: auto;
+        margin: auto;
+      }
+
+      .w3-display-container {
+        position: relative;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="map"></div>
+    <div id="instructions"></div>
+    <div id="transportation-mode">
+      <select id="mode-select">
+        <option value="walking">Walking</option>
+        <option value="cycling">Cycling</option>
+        <option value="driving">Driving</option>
+      </select>
+    </div>
+    <div id="legend">
+      <h3>Map Legend</h3>
+      <div class="dot-container">
+        <span class="reddot"></span>
+        <p class="text">500-1000 students</p>
+      </div>
+      <div class="dot-container">
+        <span class="greendot"></span>
+        <p class="text">300-500 students</p>
+      </div>
+      <div class="dot-container">
+        <span class="yellowdot"></span>
+        <p class="text">100-300 students</p>
+      </div>
+      <div class="dot-container iconlgnd">
+        <img
+          class="svgicon"
+          src="C:\Users\27736138\Downloads\Geographic Analytics\Project\icons\wg.svg"
+        />
+        <p class="text">Wohnung</p>
+      </div>
+      <div class="dot-container iconlgnd">
+        <img
+          class="svgicon"
+          src="C:\Users\27736138\Downloads\Geographic Analytics\Project\icons\dorm.svg"
+        />
+        <p class="text">Student dorm</p>
+      </div>
+      <div class="dot-container iconlgnd">
+        <img
+          class="svgicon"
+          src="C:\Users\27736138\Downloads\Geographic Analytics\Project\icons\studio.svg"
+        />
+        <p class="text">Studio apartment</p>
+      </div>
+      <div class="dot-container iconlgnd">
+        <img
+          class="svgicon"
+          src="C:\Users\27736138\Downloads\Geographic Analytics\Project\icons\stores.svg"
+        />
+        <p class="text">Supermarket</p>
+      </div>
+      <div class="dot-container iconlgnd">
+        <img
+          class="svgicon"
+          src="C:\Users\27736138\Downloads\Geographic Analytics\Project\icons\sports.svg"
+        />
+        <p class="text">Fitness activities</p>
+      </div>
+
+      <script>
+        // Add a global variable to store the current transportation mode
+        let currentMode = "walking";
+
+        // The value for 'accessToken' begins with 'pk...'
+        mapboxgl.accessToken =
+          "pk.eyJ1IjoiaGFzYW4wOTciLCJhIjoiY2xqanVudDFlMGF1cTNqcGQ2amFwb3VwayJ9.tQcubUOLwD3k26dnXOYj1A";
+        const map = new mapboxgl.Map({
+          container: "map",
+          // Replace YOUR_STYLE_URL with your style URL.
+          style: "mapbox://styles/hasan097/cljn622n400dl01pq8f5b59pa",
+          center: [9.680845, 50.555809],
+          zoom: 11.7,
+        });
+
+        // Keep track of the current popup
+        let currentPopup = null;
+
+        // Code from the next step will go here.
+        /* 
+    Add an event listener that runs
+      when a user hovers over the map element.
+    */
+        createPopup("wg-v14");
+        createPopup("dorm-v12");
+        createPopup("studio-v11");
+
+        // ******************************* SEARCH BAR CODE
+        const geocoder = new MapboxGeocoder({
+          // Initialize the geocoder
+          accessToken: mapboxgl.accessToken, // Set the access token
+          mapboxgl: mapboxgl, // Set the mapbox-gl instance
+          marker: false, // Do not use the default marker style
+          placeholder: "Search for places in Fulda", // Placeholder text for the search bar
+          //bbox: [-87.661557, 41.893748, -87.661557, 41.893748],
+          // proximity: {
+          //     longitude: -87.661557,
+          //     latitude: 41.893748
+          // } // Coordinates of UC Berkeley
+        });
+
+        // Add the geocoder to the map
+        map.addControl(geocoder);
+
+        // After the map style has loaded on the page,
+        // add a source layer and default styling for a single point
+        map.on("load", () => {
+          map.addSource("single-point", {
+            type: "geojson",
+            data: {
+              type: "FeatureCollection",
+              features: [],
+            },
+          });
+
+          map.addLayer({
+            id: "point",
+            source: "single-point",
+            type: "circle",
+            paint: {
+              "circle-radius": 5,
+              "circle-color": "#448ee4",
+            },
+          });
+
+          // Listen for the `result` event from the Geocoder // `result` event is triggered when a user makes a selection
+          //  Add a marker at the result's coordinates
+          geocoder.on("result", (event) => {
+            map.getSource("single-point").setData(event.result.geometry);
+          });
+        });
+
+        //************************ DIRECTIONS API
+
+        // an arbitrary start will always be the same
+        // only the end or destination will change
+        const end = [9.6842208, 50.5650941];
+
+        // create a function to make a directions request
+        async function getRoute(start, mode) {
+          // make a directions request using cycling profile
+          // an arbitrary start will always be the same
+          // only the end or destination will change
+          const query = await fetch(
+            `https://api.mapbox.com/directions/v5/mapbox/${mode}/${start[0]},${start[1]};${end[0]},${end[1]}?steps=true&geometries=geojson&access_token=${mapboxgl.accessToken}`,
+            { method: "GET" }
+          );
+          console.log();
+          const json = await query.json();
+          const data = json.routes[0];
+          const route = data.geometry.coordinates;
+          const geojson = {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: route,
+            },
+          };
+          // if the route already exists on the map, we'll reset it using setData
+          if (map.getSource("route")) {
+            map.getSource("route").setData(geojson);
+          }
+          // otherwise, we'll make a new request
+          else {
+            map.addLayer({
+              id: "route",
+              type: "line",
+              source: {
+                type: "geojson",
+                data: geojson,
+              },
+              layout: {
+                "line-join": "round",
+                "line-cap": "round",
+              },
+              paint: {
+                "line-color": "#3887be",
+                "line-width": 4,
+                "line-opacity": 0.75,
+              },
+            });
+          }
+          // add turn instructions here at the end
+
+          // get the sidebar and add the instructions
+          const instructions = document.getElementById("instructions");
+          const steps = data.legs[0].steps;
+
+          let tripInstructions = "";
+          for (const step of steps) {
+            tripInstructions += `<li>${step.maneuver.instruction}</li>`;
+          }
+          instructions.innerHTML = `<p><strong>Trip duration: ${Math.floor(
+            data.duration / 60
+          )}  min <br>
+        Distance to campus: ${Math.floor(
+          data.distance / 1000
+        )} km </strong></p><ol>${tripInstructions}</ol>`;
+        }
+
+        map.on("load", () => {
+          // make an initial directions request that
+          // starts and ends at the same location
+          getRoute(end, currentMode);
+
+          // Add starting point to the map
+          map.addLayer({
+            id: "end",
+            type: "symbol", // Change the type to 'symbol'
+            source: {
+              type: "geojson",
+              data: {
+                type: "FeatureCollection",
+                features: [
+                  {
+                    type: "Feature",
+                    properties: {},
+                    geometry: {
+                      type: "Point",
+                      coordinates: end,
+                    },
+                  },
+                ],
+              },
+            },
+            layout: {
+              "icon-image": "https://ibb.co/gSN6NKT", // Replace 'your-icon-image' with the actual name of your icon image
+              "icon-size": 1.5, // Adjust the size of the icon if needed
+              "icon-anchor": "bottom", // Adjust the anchor position if needed
+            },
+            paint: {},
+          });
+          // this is where the code from the next step will go
+        });
+
+        // DISTANCE TO CAMPUS FUNCTION
+        function distanceToCampus(feature) {
+          const coords = Object.keys(feature.geometry.coordinates).map(
+            (key) => feature.geometry.coordinates[key]
+          );
+          const end = {
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                properties: {},
+                geometry: {
+                  type: "Point",
+                  coordinates: coords,
+                },
+              },
+            ],
+          };
+
+          if (map.getLayer("end")) {
+            map.getSource("end").setData(end);
+          } else {
+            map.addLayer({
+              id: "end",
+              type: "circle",
+              source: {
+                type: "geojson",
+                data: {
+                  type: "FeatureCollection",
+                  features: [
+                    {
+                      type: "Feature",
+                      properties: {},
+                      geometry: {
+                        type: "Point",
+                        coordinates: coords,
+                      },
+                    },
+                  ],
+                },
+              },
+              paint: {
+                "circle-radius": 5,
+                "circle-color": "#f30",
+              },
+            });
+          }
+          getRoute(coords, currentMode);
+        }
+
+        function createPopup(type) {
+          map.on("mousemove", type, (event) => {
+            // If the user hovered over one of your markers, get its information.
+            const feature = event.features[0];
+
+            // Close the current popup if it exists
+            if (currentPopup) {
+              currentPopup.remove();
+            }
+
+            // Create a new popup and set its properties
+            const popup = new mapboxgl.Popup({
+              offset: [0, -15],
+              maxHeight: "300px",
+              maxWidth: "300px",
+              className: "custom-popup",
+            })
+              .setLngLat(feature.geometry.coordinates)
+              .setHTML(
+                `<div style="display: flex">
+                <h2>${feature.properties.Name}</h2>
+                <h4 style="margin-left: 20px; color:#1754d7">Ratings: ${feature.properties.Ratings}</h4>
+              </div>
+              <hr>
+              <div class="w3-content w3-display-container">
+  <img id="defaultImage" src="https://rb.gy/5qcuk" style="width:100%">
+  <img class="mySlides" src="https://rb.gy/8rarv" style="width:100%">
+  <img class="mySlides" src="https://rb.gy/k6wfb" style="width:100%" "height: 110%">
+  <img class="mySlides" src="https://rb.gy/5qcuk" style="width:100%">
+
+  
+</div>
+
+
+              <h3>Rent: €${feature.properties.Rent}</h3>
+              <p><strong>Address: </strong>${feature.properties.Address}</p>
+              <p><strong>Description: </strong>${feature.properties.Description}</p>
+              <p><strong>Amenities: </strong>${feature.properties.Amenities}</p>
+              <hr>`
+              )
+              .addTo(map);
+
+            // Update the current popup
+            currentPopup = popup;
+
+            distanceToCampus(feature);
+          });
+        }
+
+        // Add a click event listener to the Get Directions button// Get the mode-select element
+        const modeSelect = document.getElementById("mode-select");
+
+        // Add an event listener to listen for changes in the selected option
+        modeSelect.addEventListener("change", function () {
+          // Get the value of the selected option
+          const selectedOption = modeSelect.value;
+          currentMode = selectedOption;
+          // Print the selected option in the console
+          getRoute(end, currentMode);
+        });
+
+        // const imageUrl = [
+        //   "https://rb.gy/5qcuk",
+        //   "https://rb.gy/8rarv",
+        //   "https://rb.gy/k6wfb",
+        // ];
+
+        //Slider Func
+
+        var slideIndex = 0;
+        var slides = document.getElementsByClassName("mySlides"); // Define slides variable in the global scope
+
+        function plusDivs(n) {
+          slideIndex += n;
+          showSlide(slideIndex);
+        }
+
+        function showSlide(index) {
+          if (index >= slides.length) {
+            slideIndex = 0;
+          } else if (index < 0) {
+            slideIndex = slides.length - 1;
+          }
+          document.getElementById("defaultImage").src = slides[slideIndex].src;
+        }
+
+        // Function to automatically change slide every 2 seconds
+        setInterval(function () {
+          slideIndex++;
+          showSlide(slideIndex);
+        }, 2000);
+
+        // Show the default slide on page load
+        window.addEventListener("DOMContentLoaded", function () {
+          showSlide(slideIndex);
+        });
+      </script>
+    </div>
+  </body>
+</html>
